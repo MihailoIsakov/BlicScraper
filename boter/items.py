@@ -13,7 +13,7 @@ class Comment(Item):
     upvotes = Field()
     downvotes = Field()
     date = Field()
-
+    articleUrl = Field()
 
 # class Page(Item):
 #     articleUrl = Field()

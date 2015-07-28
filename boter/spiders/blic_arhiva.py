@@ -1,7 +1,9 @@
+import datetime
+
 import scrapy
 from scrapy import Request
+from scrapy.http import FormRequest
 from boter.items import Comment
-from scrapy.shell import inspect_response
 
 class BlicArhivaSpider(scrapy.Spider):
     name = "blic_arhiva"
@@ -10,15 +12,31 @@ class BlicArhivaSpider(scrapy.Spider):
         'http://www.blic.rs/arhiva',
     )
 
+    _date = datetime.datetime.now()
+
     def parse(self, response):
         archive = response.xpath('//*[@id="content_list_view"]/ul')
         archive_links = archive.xpath('.//@href')
+
+        # Scrape the current archive page
         for link in archive_links:
             url = link.extract()
             if not BlicArhivaSpider._is_tracked(url):
                 continue
             page_url = self._comment_page(url)
             yield Request(page_url, callback=self.parse_page )
+
+        # Scrape the next archive page
+        while self._date.year > 2014:
+            self._date = self._date - datetime.timedelta(1)
+            formdata = {'d': str(self._date.day),
+                        'm': str(self._date.month),
+                        'y': str(self._date.year)}
+
+            print("Date: " + str(formdata))
+
+            post = FormRequest(self.start_urls[0], formdata = formdata, callback=self.parse)
+            yield post
 
     def parse_page(self, response):
         comments = response.xpath('//div[@db_id]')

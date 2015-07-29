@@ -17,6 +17,7 @@ DEFAULT_ITEM_CLASS = 'boter.items.Komentar'
 ITEM_PIPELINES = {
     'boter.pipelines.JsonWithEncodingPipeline': 300,
 }
+LOG_LEVEL = "INFO"
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent

@@ -3,7 +3,7 @@ import datetime
 import scrapy
 from scrapy import Request
 from scrapy.http import FormRequest
-from boter.items import Comment
+from boter.items import Comment, Page
 
 class BlicArhivaSpider(scrapy.Spider):
     name = "blic_arhiva"
@@ -39,18 +39,22 @@ class BlicArhivaSpider(scrapy.Spider):
             yield post
 
     def parse_page(self, response):
+        page = Page()
+        page['articleUrl'] = response.url
+        page['articleName'] = response.xpath('//div[@id="main_content"]//h2[1]/a/text()').extract()
+
         comments = response.xpath('//div[@db_id]')
         items = []
         for comment in comments:
             item = self._parse_comment(comment)
             items.append(item)
 
-        return items
+        page['comments'] = items
+        return page
 
     @staticmethod
     def _parse_comment(comment):
         item = Comment()
-        item['articleUrl'] = comment.xpath('//div[@id="main_content"]//h2[1]/a/text()').extract()
         item['comment']    = comment.xpath('.//div[@class="comm_text"]/text()').extract()
         item['upvotes']    = comment.xpath('.//span[@class="left"]/text()').extract()
         item['downvotes']  = comment.xpath('.//span[@class="comment_minus"]/text()').extract()
@@ -58,7 +62,7 @@ class BlicArhivaSpider(scrapy.Spider):
         commenterInfo = comment.xpath('.//div[@class="comm_u_name left"]')
         item['commenter'] = commenterInfo.xpath('span[1]/text()').extract()
         item['date'] = commenterInfo.xpath('span[2]/text()').extract()
-        return item
+        return dict(item)
 
     @staticmethod
     def _is_tracked(url):

@@ -13,9 +13,9 @@ class Comment(Item):
     upvotes = Field()
     downvotes = Field()
     date = Field()
-    articleUrl = Field()
 
-# class Page(Item):
-#     articleUrl = Field()
-#     articleName = Field()
-#     comments = Field()
+
+class Page(Item):
+    articleUrl = Field()
+    articleName = Field()
+    comments = Field()

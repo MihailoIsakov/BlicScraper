@@ -2,75 +2,84 @@ import datetime
 
 import scrapy
 from scrapy import Request
-from scrapy.http import FormRequest
 from boter.items import Comment, Page
+
+import logging
+logger = logging.getLogger(__name__)
+
+
+def _pad(number): 
+    if number < 10:
+        number = "0" + str(number)
+    return number
+
+
+def build_archive_link(year, month, day, pagination):
+    return "http://www.blic.rs/archive/?s=%(pagination)s&date=%(year)s-%(month)s-%(day)s" \
+        % {'year': year, 'month': _pad(month), 'day': _pad(day), 'pagination': pagination}
+
 
 class BlicArhivaSpider(scrapy.Spider):
     name = "blic_arhiva"
     allowed_domains = ["blic.rs"]
-    start_urls = (
-        'http://www.blic.rs/arhiva',
-    )
 
-    _date = datetime.datetime.now()
+    def start_requests(self):
+        """
+        Create a request for every days archive page.
+        Each page is paginated, so a separate scrape is needed for every day.
+        That scrape is the parse_archive_pagination method, which is called for
+        the first page and calls itself for subsequent pages until it runs out
+        of links.
+        """
+        _date = datetime.datetime.now()
 
-    def parse(self, response):
-        archive = response.xpath('//*[@id="content_list_view"]/ul')
-        archive_links = archive.xpath('.//@href')
-
-        # Scrape the current archive page
-        for link in archive_links:
-            url = link.extract()
-            if not BlicArhivaSpider._is_tracked(url):
-                continue
-            page_url = self._comment_page(url)
-            yield Request(page_url, callback=self.parse_page )
-
-        # Scrape the next archive page
-        while self._date.year > 2014:
-            self._date = self._date - datetime.timedelta(1)
-            formdata = {'d': str(self._date.day),
-                        'm': str(self._date.month),
-                        'y': str(self._date.year)}
-
-            print("Date: " + str(formdata))
-
-            post = FormRequest(self.start_urls[0], formdata = formdata, callback=self.parse)
+        while _date.year > 2015:  # go through all the pages up to 2012
+            # make the post request for the first page of that day's archive
+            post = Request(
+                build_archive_link(_date.year, _date.month, _date.day, 1),
+                callback=self.parse_archive_pagination)
+            post.meta['pagination'] = 1
+            post.meta['date'] = _date
             yield post
 
-    def parse_page(self, response):
-        page = Page()
-        page['articleUrl'] = response.url
-        page['articleName'] = response.xpath('//div[@id="main_content"]//h2[1]/a/text()').extract()
+            _date = _date - datetime.timedelta(1)  # tommorows date
 
-        comments = response.xpath('//div[@db_id]')
-        items = []
+    def parse_archive_pagination(self, response):
+        """
+        Go through the pages of the archive and scrape the article links
+        until you stop finding articles to scrape.
+        """
+        articles = response.xpath('.//span[@class="archiveValue"]/a/@href')
+
+        # if the current page has articles, look up the next one
+        if len(articles) > 0: 
+            pagination = response.meta['pagination']
+            _date = response.meta['date']
+            post = Request(
+                build_archive_link(_date.year, _date.month, _date.day, pagination + 1),
+                callback=self.parse_archive_pagination)
+            post.meta['pagination'] = pagination + 1
+            post.meta['date'] = _date
+            yield post
+
+        for article in articles:
+            link = article.extract()
+            post = Request(
+                link,
+                callback=self.parse_article)
+            yield post
+
+    def parse_article(self, response): 
+        """Parses the page, finds the comment page link, goes there"""
+        comment_page = response.xpath("//a[@class='k_makeComment']/@href")
+        if len(comment_page) > 0: 
+            comment_page = "http://www.blic.rs" + comment_page.extract()[0]
+            return Request(comment_page, callback=self.parse_comment_page) 
+
+    def parse_comment_page(self, response):
+        comments = response.xpath('//div[contains(@class, "k_nForum_ReaderItem")]')
+
         for comment in comments:
-            item = self._parse_comment(comment)
-            items.append(item)
+            comment_text = comment.xpath(".//span[@class='k_content']/text()").extract()[0].strip()
+            logger.info(comment_text)
 
-        page['comments'] = items
-        return page
-
-    @staticmethod
-    def _parse_comment(comment):
-        item = Comment()
-        item['comment']    = comment.xpath('.//div[@class="comm_text"]/text()').extract()
-        item['upvotes']    = comment.xpath('.//span[@class="left"]/text()').extract()
-        item['downvotes']  = comment.xpath('.//span[@class="comment_minus"]/text()').extract()
-
-        commenterInfo = comment.xpath('.//div[@class="comm_u_name left"]')
-        item['commenter'] = commenterInfo.xpath('span[1]/text()').extract()
-        item['date'] = commenterInfo.xpath('span[2]/text()').extract()
-        return dict(item)
-
-    @staticmethod
-    def _is_tracked(url):
-        # tracked = ["Politika"]
-        if "Politika" in url or "Ekonomija" in url:
-            return True
-        return False
-
-    @staticmethod
-    def _comment_page(url):
-        return url + "/komentari#ostali"

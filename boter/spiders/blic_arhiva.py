@@ -2,7 +2,7 @@ import datetime
 
 import scrapy
 from scrapy import Request
-from boter.items import Comment, Page
+from boter.items import Comment
 import re
 
 import logging
@@ -95,12 +95,14 @@ class BlicArhivaSpider(scrapy.Spider):
             upvotes = comment.xpath(".//span[@class='k_nForum_MarkTipUpPercent']/text()")[0].extract().strip()
             downvotes = comment.xpath(".//span[@class='k_nForum_MarkTipDownPercent']/text()")[0].extract().strip()
 
-            data = {'id': comment_id, 
-                    'link': link, 
-                    'author': author, 
-                    'parent_author': parent_author,
-                    'comment': comment_text, 
-                    'vote_count': vote_count, 
-                    'upvotes': upvotes, 
-                    'downvotes': downvotes}
+            item = Comment()
+            item.id = comment_id, 
+            item.link = link, 
+            item.author = author, 
+            item.parent_author = parent_author,
+            item.comment = comment_text, 
+            item.vote_count = vote_count, 
+            item.upvotes = upvotes, 
+            item.downvotes = downvotes
 
+            return item

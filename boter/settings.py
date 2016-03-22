@@ -15,8 +15,14 @@ SPIDER_MODULES = ['boter.spiders']
 NEWSPIDER_MODULE = 'boter.spiders'
 DEFAULT_ITEM_CLASS = 'boter.items.Komentar'
 ITEM_PIPELINES = {
-    'boter.pipelines.JsonWithEncodingPipeline': 300,
+    #'boter.pipelines.JsonWithEncodingPipeline': 300,
+    'scrapy_mongodb.MongoDBPipeline',
 }
+
+MONGODB_URI = 'mongodb://localhost:27017'
+MONGODB_DATABASE = 'scrape'
+MONGODB_COLLECTION = 'blic'
+
 LOG_LEVEL = "INFO"
 
 

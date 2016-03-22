@@ -3,6 +3,7 @@ import datetime
 import scrapy
 from scrapy import Request
 from boter.items import Comment, Page
+import re
 
 import logging
 logger = logging.getLogger(__name__)
@@ -80,6 +81,26 @@ class BlicArhivaSpider(scrapy.Spider):
         comments = response.xpath('//div[contains(@class, "k_nForum_ReaderItem")]')
 
         for comment in comments:
+            comment_id = comment.xpath('.//div[@class="k_commentHolder"]/@id').extract()[0]
+            comment_id = re.findall(r"\d+", comment_id)[0]
+            link = response.url
+            author = comment.xpath('.//span[@class="k_author"]/text()').extract()[0].strip() 
+            parent_author = comment.xpath('.//span[@class="k_parentAuthor"]/text()')
+            if parent_author: 
+                parent_author = parent_author.extract()[0].strip() 
+            else: 
+                parent_author = ""
             comment_text = comment.xpath(".//span[@class='k_content']/text()").extract()[0].strip()
-            logger.info(comment_text)
+            vote_count = comments.xpath(".//div[@class='k_nForum_MarkTipCount']/span/text()")[0].extract().strip()
+            upvotes = comment.xpath(".//span[@class='k_nForum_MarkTipUpPercent']/text()")[0].extract().strip()
+            downvotes = comment.xpath(".//span[@class='k_nForum_MarkTipDownPercent']/text()")[0].extract().strip()
+
+            data = {'id': comment_id, 
+                    'link': link, 
+                    'author': author, 
+                    'parent_author': parent_author,
+                    'comment': comment_text, 
+                    'vote_count': vote_count, 
+                    'upvotes': upvotes, 
+                    'downvotes': downvotes}
 

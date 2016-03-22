@@ -8,14 +8,11 @@
 from scrapy import Field, Item
 
 class Comment(Item):
-    commenter = Field()
+    id = Field()
+    link = Field()
+    author = Field()
+    parent_author = Field()
     comment = Field()
+    vote_count = Field()
     upvotes = Field()
     downvotes = Field()
-    date = Field()
-
-
-class Page(Item):
-    articleUrl = Field()
-    articleName = Field()
-    comments = Field()

@@ -79,6 +79,11 @@ class BlicArhivaSpider(scrapy.Spider):
 
     def parse_comment_page(self, response):
         comments = response.xpath('//div[contains(@class, "k_nForum_ReaderItem")]')
+        #next_page = response.xpath('//a[contains(@class, "k_makeComment"]/@href')[0].extract() 
+        #logger.info("Next page" + next_page)
+        #yield Request(next_page, callback=self.parse_comment_page)
+
+        logger.info(str(len(comments)) + " for " + response.url)
 
         for comment in comments:
             comment_id = comment.xpath('.//div[@class="k_commentHolder"]/@id').extract()[0]
@@ -96,13 +101,13 @@ class BlicArhivaSpider(scrapy.Spider):
             downvotes = comment.xpath(".//span[@class='k_nForum_MarkTipDownPercent']/text()")[0].extract().strip()
 
             item = Comment()
-            item.id = comment_id, 
-            item.link = link, 
-            item.author = author, 
-            item.parent_author = parent_author,
-            item.comment = comment_text, 
-            item.vote_count = vote_count, 
-            item.upvotes = upvotes, 
-            item.downvotes = downvotes
+            item['id'] = comment_id
+            item['link'] = link
+            item['author'] = author
+            item['parent_author'] = parent_author
+            item['comment'] = comment_text
+            item['vote_count'] = vote_count
+            item['upvotes'] = upvotes
+            item['downvotes'] = downvotes
 
-            return item
+            yield item

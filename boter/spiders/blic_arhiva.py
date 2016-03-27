@@ -16,7 +16,7 @@ def _pad(number):
 
 
 def build_archive_link(year, month, day, pagination):
-    return "http://www.blic.rs/archive/?s=%(pagination)s&date=%(year)s-%(month)s-%(day)s" \
+    return "http://www.blic.rs/Arhiva/?s=%(pagination)s&date=%(year)s-%(month)s-%(day)s" \
         % {'year': year, 'month': _pad(month), 'day': _pad(day), 'pagination': pagination}
 
 
@@ -34,7 +34,7 @@ class BlicArhivaSpider(scrapy.Spider):
         """
         _date = datetime.datetime.now()
 
-        while _date.year > 2015:  # go through all the pages up to 2012
+        while _date.year > 2012:  # go through all the pages up to 2012
             # make the post request for the first page of that day's archive
             post = Request(
                 build_archive_link(_date.year, _date.month, _date.day, 1),
@@ -74,21 +74,32 @@ class BlicArhivaSpider(scrapy.Spider):
         """Parses the page, finds the comment page link, goes there"""
         comment_page = response.xpath("//a[@class='k_makeComment']/@href")
         if len(comment_page) > 0: 
+            article_link = response.url 
             comment_page = "http://www.blic.rs" + comment_page.extract()[0]
-            return Request(comment_page, callback=self.parse_comment_page) 
+            request = Request(comment_page, callback=self.parse_comment_page) 
+            request.meta['article_link'] = article_link
+            yield request
 
     def parse_comment_page(self, response):
         comments = response.xpath('//div[contains(@class, "k_nForum_ReaderItem")]')
-        #next_page = response.xpath('//a[contains(@class, "k_makeComment"]/@href')[0].extract() 
-        #logger.info("Next page" + next_page)
-        #yield Request(next_page, callback=self.parse_comment_page)
+
+        # The comments are paginated. Find the next page
+        next_page = response.xpath('//a[contains(@class, "k_nForum_LinksNext")]/@href')
+        if len(next_page) > 0:
+            logger.info("Found next page: " + next_page[0].extract())
+
+            next_page = next_page[0].extract() 
+            next_page = "http://www.blic.rs" + next_page
+            request = Request(next_page, callback=self.parse_comment_page)
+            request.meta['article_link'] = response.meta['article_link']
+            yield request
 
         logger.info(str(len(comments)) + " for " + response.url)
 
         for comment in comments:
             comment_id = comment.xpath('.//div[@class="k_commentHolder"]/@id').extract()[0]
             comment_id = re.findall(r"\d+", comment_id)[0]
-            link = response.url
+            link = response.meta['article_link']
             author = comment.xpath('.//span[@class="k_author"]/text()').extract()[0].strip() 
             parent_author = comment.xpath('.//span[@class="k_parentAuthor"]/text()')
             if parent_author: 
